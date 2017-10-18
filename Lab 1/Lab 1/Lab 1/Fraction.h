@@ -1,157 +1,206 @@
-#pragma once
-#include <iostream>
+#ifndef FRACTION_H
+#define FRACTION_H
 
-template<typename TYPE>
-class Fraction
+#include <string>
+#include <sstream>
+#include <stdexcept>
+
+
+template <typename T>
+struct NumberConstraint
 {
-    TYPE numerator, denominator;
-
-    void toCommonDenominator(Fraction<TYPE> & f1, Fraction<TYPE> & f2);
-
-public:
-    Fraction() : numerator(0), denominator(1) {};
-
-    Fraction(TYPE Numerator, TYPE Denominator) : numerator(Numerator), denominator(Denominator) {};
-
-
-    Fraction<TYPE> & operator+=(const Fraction<TYPE> & fraction);
-    Fraction<TYPE> operator+(const Fraction<TYPE> & fraction);
-
-    Fraction<TYPE> & operator-=(const Fraction<TYPE> & fraction);
-    Fraction<TYPE> operator-(const Fraction<TYPE> & fraction);
-
-    Fraction<TYPE> & operator*=(const Fraction<TYPE> & fraction);
-    Fraction<TYPE> operator*(const Fraction<TYPE> & fraction);
-
-    Fraction<TYPE> & operator/=(const Fraction<TYPE> & fraction);
-    Fraction<TYPE> operator/(const Fraction<TYPE> & fraction);
-
-    bool operator==(const Fraction<TYPE> & fraction);
-    bool operator!=(const Fraction<TYPE> & fraction);
-
-
-    friend std::ostream & operator<<(std::ostream & os, const Fraction<TYPE> & f) {
-        os << f.numerator << " / " << f.denominator;
-        return os;
-    }
-
-    friend std::istream & operator>>(std::istream & is, Fraction<TYPE> & f) {
-        char c;
-        is >> f.numerator >> c >> f.denominator;
-
-        return is;
-    }
-
-    //~Fraction();
 };
 
-template<typename TYPE>
-inline void Fraction<TYPE>::toCommonDenominator(Fraction<TYPE> & f1, Fraction<TYPE> & f2)
+template <>
+struct NumberConstraint <int>
 {
-    f1.numerator *= f2.denominator;
-    f2.numerator *= f1.denominator;
+    static constexpr int One = 1;
+    static constexpr int Zero = 0;
+};
 
-    f2.denominator = (f1.denominator *= f2.denominator);
-}
-
-template<typename TYPE>
-inline Fraction<TYPE> & Fraction<TYPE>::operator+=(const Fraction<TYPE> & f)
+template <>
+struct NumberConstraint <long long>
 {
-    if (denominator != f.denominator) {
-        auto tmp = f;
-        toCommonDenominator(*this, tmp);
-        numerator += tmp.numerator;
-    }
-    else {
-        numerator += f.numerator;
-    }
+    static constexpr long long One = 1;
+    static constexpr long long Zero = 0;
+};
 
-    return *this;
-}
-
-template<typename TYPE>
-inline Fraction<TYPE> Fraction<TYPE>::operator+(const Fraction<TYPE>& f)
+template <typename T>
+class Fraction
 {
-    auto tmp = *this;
-    tmp += f;
+public:
+    using CRef = const Fraction &;
 
-    return tmp;
-}
+    Fraction() : _numerator(NumberConstraint<T>::Zero), _denumerator(NumberConstraint<T>::One) {}
 
-template<typename TYPE>
-inline Fraction<TYPE>& Fraction<TYPE>::operator-=(const Fraction<TYPE>& f)
-{
-    if (denominator != f.denominator) {
-        auto tmp = f;
-        toCommonDenominator(*this, tmp);
-        numerator -= tmp.numerator;
-    }
-    else {
-        numerator -= f.numerator;
+    explicit Fraction(T number) : Fraction(number, NumberConstraint<T>::One) {}
+
+    Fraction(T numerator, T denumerator) :
+        _numerator(numerator)
+    {
+        if (denumerator == NumberConstraint<T>::Zero) {
+            throw std::runtime_error("Denumerator equals to 0");
+        }
+
+        _denumerator = denumerator;
     }
 
-    return *this;
-}
+    Fraction & operator += (CRef rhs) {
+        T multiplier = Lcm(_denumerator, rhs._denumerator);
 
-template<typename TYPE>
-inline Fraction<TYPE> Fraction<TYPE>::operator-(const Fraction<TYPE>& f)
-{
-    auto tmp = *this;
-    tmp -= f;
+        _numerator = this->Multiply(multiplier) + rhs.Multiply(multiplier);
+        _denumerator = multiplier;
 
-    return tmp;
-}
-
-template<typename TYPE>
-inline Fraction<TYPE> & Fraction<TYPE>::operator*=(const Fraction<TYPE>& f)
-{
-    numerator *= f.numerator;
-    denominator *= f.denominator;
-
-    return *this;
-}
-
-template<typename TYPE>
-inline Fraction<TYPE> Fraction<TYPE>::operator*(const Fraction<TYPE>& f)
-{
-    auto tmp = *this;
-    tmp *= f;
-
-    return tmp;
-}
-
-template<typename TYPE>
-inline Fraction<TYPE>& Fraction<TYPE>::operator/=(const Fraction<TYPE>& f)
-{
-    *this *= Fraction<TYPE>(f.denominator, f.numerator);
-
-    return *this;
-}
-
-template<typename TYPE>
-inline Fraction<TYPE> Fraction<TYPE>::operator/(const Fraction<TYPE>& f)
-{
-    auto tmp = *this;
-    tmp /= f;
-
-    return tmp;
-}
-
-template<typename TYPE>
-inline bool Fraction<TYPE>::operator==(const Fraction<TYPE>& f)
-{
-    auto f_1 = *this, f_2 = f;
-
-    if (denominator != f.denominator) {
-        toCommonDenominator(f_1, f_2);
+        return this->Simplify();
     }
 
-    return f_1.numerator == f_2.numerator;
+    Fraction & operator-= (CRef rhs) {
+        return (*this) += -rhs;
+    }
+
+    Fraction & operator *= (CRef rhs) {
+        _numerator *= rhs._numerator;
+        _denumerator *= rhs._denumerator;
+
+        return this->Simplify();
+    }
+
+    Fraction & operator /= (CRef rhs) {
+        if (rhs._numerator == NumberConstraint<T>::Zero) {
+            throw std::runtime_error("Division by zero");
+        }
+
+        _numerator *= rhs._denumerator;
+        _denumerator *= rhs._numerator;
+
+        return this->Simplify();
+    }
+
+    Fraction operator -() const {
+        return Fraction(-_numerator, _denumerator);
+    }
+
+    T Compare(CRef rhs) const {
+        if (_denumerator == rhs._denumerator) {
+            return _numerator - rhs._numerator;
+        }
+
+        auto number = Lcm(_denumerator, rhs._denumerator);
+        return this->Multiply(number) - rhs.Multiply(number);
+    }
+
+    std::string ToString() const {
+        std::stringstream stream;
+        if (_numerator == _denumerator) return to_string(_numerator);
+
+        stream << _numerator << "/"
+            << _denumerator;
+
+        return stream.str();
+    }
+
+private:
+    static T Lcm(T left, T right) {
+        return left * (right / Gcd(left, right));
+    }
+
+    static T Gcd(T left, T right) {
+        return left ? Gcd(right % left, left) : right;
+    }
+
+    inline T Multiply(T number) const {
+        return (number / _denumerator) * _numerator;
+    }
+
+    Fraction<T> & Simplify() {
+        auto d = Gcd(::abs(_numerator), _denumerator);
+
+        _numerator /= d;
+        _denumerator /= d;
+
+        return *this;
+    }
+
+    Fraction Multiplied(T number) const {
+        return Fraction(this->Multiply(number), number);
+    }
+
+private:
+    T _numerator;
+    T _denumerator;
+};
+
+template<typename T, typename Stream>
+Stream & operator << (Stream & stream, const Fraction<T> & rhs) {
+    stream << rhs.ToString();
+
+    return stream;
 }
 
-template<typename TYPE>
-inline bool Fraction<TYPE>::operator!=(const Fraction<TYPE>& f)
-{
-    return !(*this == f);
+template<typename T, typename Stream>
+Stream & operator >> (Stream & stream, Fraction<T> & rhs) {
+    T denominator, numerator;
+    char c;
+    stream >> numerator >> c >> denominator;
+    rhs = Fraction<T>(numerator, denominator);
+
+    return stream;
 }
 
+
+template <typename T>
+Fraction<T> operator+ (const Fraction<T> & left, const Fraction<T> & right) {
+    auto tmp = left;
+    return tmp += right;
+}
+
+template <typename T>
+Fraction<T> operator- (const Fraction<T> & left, const Fraction<T> & right) {
+    auto tmp = left;
+    return tmp -= right;
+}
+
+template <typename T>
+Fraction<T> operator* (const Fraction<T> & left, const Fraction<T> & right) {
+    auto tmp = left;
+    return tmp *= right;
+}
+
+template <typename T>
+Fraction<T> operator/ (const Fraction<T> & left, const Fraction<T> & right) {
+    auto tmp = left;
+    return tmp /= right;
+}
+
+template <typename T>
+bool operator==(const Fraction<T> & left, const Fraction<T> & right) {
+    return left.Compare(right) == NumberConstraint<T>::Zero;
+}
+
+template <typename T>
+bool operator!=(const Fraction<T> & left, const Fraction<T> & right) {
+    return !(left == right);
+}
+
+template <typename T>
+bool operator>(const Fraction<T> & left, const Fraction<T> & right) {
+    return left.Compare(right) > NumberConstraint<T>::Zero;
+}
+
+template <typename T>
+bool operator<(const Fraction<T> & left, const Fraction<T> & right) {
+    return left.Compare(right) < NumberConstraint<T>::Zero;
+}
+
+template <typename T>
+bool operator>=(const Fraction<T> & left, const Fraction<T> & right) {
+    return !(left < right);
+}
+
+template <typename T>
+bool operator<=(const Fraction<T> & left, const Fraction<T> & right) {
+    return !(left > right);
+}
+
+
+#endif

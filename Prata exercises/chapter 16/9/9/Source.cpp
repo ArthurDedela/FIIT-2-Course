@@ -7,7 +7,7 @@
 using namespace std;
 using namespace std::chrono;
 
-const int elements = 10000000;
+const int elements = 1000000;
 
 int main() {
     srand(time(NULL));
@@ -40,7 +40,7 @@ int main() {
 
     t1 = high_resolution_clock::now();
 
-    //li.sort();
+    li.sort();
 
     t2 = high_resolution_clock::now();
 
