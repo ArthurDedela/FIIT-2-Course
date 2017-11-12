@@ -148,7 +148,7 @@ class HashTable
         this->data.resize(max_hash);
 
         for (auto it : prevTable) {
-            this->put(it.first, it.second);
+            this->insert(it.first, it.second);
         }
     }
 
@@ -165,7 +165,7 @@ public:
         return Iterator(&data, "end");
     }
 
-    void put(const KEY & key, const VAL & val) {
+    void insert(const KEY & key, const VAL & val) {
         if (_size / double(max_hash) > fillCoef) rehash();
 
         unsigned i = hash(key) % max_hash;

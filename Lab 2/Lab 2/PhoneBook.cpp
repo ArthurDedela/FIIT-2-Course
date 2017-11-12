@@ -5,26 +5,40 @@
 PhoneBook::PhoneBook()
 {
     ifstream fin("bookdata.txt");
-
     if (!fin.is_open()) return;
-      
-    string number, s;
+    
+    string numbers, s;
+    
 
     while (!fin.eof()) {
-        fin >> number;
-        if (fin.eof()) break;
-        fin >> s;
-        records[number].firstName = s;
-        fin >> s;
-        records[number].lastName = s;
-        fin >> s;
-        records[number].patronymic = s;
-        fin >> s;
-        records[number].email = s;
-        fin >> s;
-        records[number].work = s;
-        fin >> s;
-        records[number].post = s;
+        BookRecord rec;
+        unsigned index = records.size();
+
+        getline(fin, numbers);
+        if (numbers.length() == 0) break;
+
+        istringstream iss(numbers);
+        copy(istream_iterator<string>(iss),
+            istream_iterator<string>(),
+            back_inserter(rec.phone_numbers)
+        );        
+
+        getline(fin, s);
+        istringstream iss2(s);
+
+        iss2 >> rec.firstName
+            >> rec.lastName 
+            >> rec.patronymic 
+            >> rec.email 
+            >> rec.work 
+            >> rec.post;
+
+        hash_lastName[rec.lastName].push_back(index);
+        for (auto it : rec.phone_numbers) {
+            hash_phone[it] = index;
+        }
+
+        records.push_back(rec);
     }
 
     fin.close();
@@ -42,36 +56,55 @@ void PhoneBook::addLastAction(LastAction lastAction)
     lastActions.push_front(lastAction);
 }
 
-void PhoneBook::printRecord(string phone, BookRecord rec)
+void PhoneBook::printRecord(const BookRecord & rec)
 {
-    cout << "Phone: " << phone << '\n';
-    cout << "First name: " << rec.firstName << '\n';
+    cout << "**************************\n";
     cout << "Last name: " << rec.lastName << '\n';
+    cout << "First name: " << rec.firstName << '\n';    
     cout << "Patronymic: " << rec.patronymic << '\n';
+    cout << "Phone numbers: \n";
+    for (auto it : rec.phone_numbers) {
+        cout << '\t' << it << '\n';
+    }
     cout << "Email: " << rec.email << '\n';
     cout << "Work: " << rec.work << '\n';
     cout << "Post: " << rec.post << '\n';
+    cout << "**************************\n";
 }
 
 
 
 void PhoneBook::showMenu()
 {
+    cout << "/~~~~~~~~~~~~~~~~~~~~\\\n";
     for (auto i : menu) {
         cout << i << '\n';
     }
-    cout << ":: ";
 }
 
 void PhoneBook::addRecord()
 {
     BookRecord rec;
     string phone;
+    unsigned index = records.size();
 
-    cout << "Phone: ";
-    cin >> phone;
-    if (records.find(phone)) {
-        cout << "This phone already exist!\n";
+    cout << "Enter phone numbers or \"STOP\" to finish:\n";
+    while (true) {   
+        cout << ":: ";
+        cin >> phone;
+
+        if (phone == "STOP") break;
+
+        if (hash_phone.find(phone)) {
+            cout << "This phone number already exist!\n";
+            continue;
+        }
+
+        if (phone.length() > 0) rec.phone_numbers.push_back(phone);
+    }
+
+    if (rec.phone_numbers.size() == 0) {
+        cout << "Contact not created. You must enter at least one phone number!\n";
         return;
     }
 
@@ -88,11 +121,17 @@ void PhoneBook::addRecord()
     cout << "Post: ";
     cin >> rec.post;
     
-    records[phone] = rec;
+    
+    for (auto it : rec.phone_numbers) {
+        hash_phone[it] = index;
+    }
+    hash_lastName[rec.lastName].push_back(index);
+
+    records.push_back(rec);
 
     cout << "Record added!\n";
 
-    addLastAction(LastAction{ Add, phone, rec });
+    addLastAction(LastAction{ Add, rec, index });
 }
 
 void PhoneBook::changeRecord()
@@ -101,37 +140,88 @@ void PhoneBook::changeRecord()
     cout << "Enter phone: ";
     cin >> phone;
 
-    cout << "What field you want to change?\n1. Phone 2. First name 3. Last name 4. Patronymic 5. Email 6. Work 7. Post\n:: ";
-    int field;
-    cin >> field;
-    string input;
-    cout << "Enter new information: ";
-    cin >> input;
+    if (!hash_phone.find(phone)) {
+        cout << "Contact not found!\n";
+        return;
+    }
+    unsigned i = hash_phone[phone];
+    printRecord(records[i]);
 
-    BookRecord prevState = records[phone];
+    cout << "What field you want to change?\n1. Phone 2. First name 3. Last name 4. Patronymic 5. Email 6. Work 7. Post\n";
+    int field;
+    field = _getch() - '0';
+
+    string input;
+    
+    BookRecord prevState = records[i];
+    BookRecord & nextState = records[i];
 
     switch (field) {
     case Phone:
-        records[input] = records[phone];
-        records.remove(phone);
+        for (auto it : nextState.phone_numbers) {
+            hash_phone.remove(it);
+        }
+        nextState.phone_numbers.clear();
+
+        cout << "Enter phone numbers or \"STOP\" to finish: ";
+        while (true) {
+            string phone;
+            cout << ":: ";
+            cin >> phone;
+
+            if (phone == "STOP") break;
+
+            if (hash_phone.find(phone)) {
+                cout << "This phone number already exist!\n";
+                continue;
+            }
+
+            if (phone.length() > 0) nextState.phone_numbers.push_back(phone);
+        }
+
+        for (auto it : nextState.phone_numbers) {
+            hash_phone[it] = i;
+        }
+
         break;
     case FirstName:
-        records[phone].firstName = input;
+        cout << "Enter new first name: ";
+        cin >> input;
+        nextState.firstName = input;
         break;
     case LastName:
-        records[phone].lastName = input;
+        cout << "Enter new last name: ";
+        cin >> input;
+
+        for (auto it = hash_lastName[nextState.lastName].begin(); it != hash_lastName[nextState.lastName].end(); ++it) {
+            if (*it == i) {
+                hash_lastName[nextState.lastName].erase(it);
+                break;
+            }
+        }
+        nextState.lastName = input;
+
+        hash_lastName[nextState.lastName].push_back(i);
         break;
     case Patronymic:
-        records[phone].patronymic = input;
+        cout << "Enter new patronymic: ";
+        cin >> input;
+        nextState.patronymic = input;
         break;
     case Email:
-        records[phone].email = input;
+        cout << "Enter new email: ";
+        cin >> input;
+        nextState.email = input;
         break;
     case Work:
-        records[phone].work = input;
+        cout << "Enter new work: ";
+        cin >> input;
+        nextState.work = input;
         break;
     case Post:
-        records[phone].post = input;
+        cout << "Enter new post: ";
+        cin >> input;
+        nextState.post = input;
         break;
     default:
         cout << "Incorrect input!\n";
@@ -139,7 +229,7 @@ void PhoneBook::changeRecord()
     }
     
     cout << "Record changed.\n";
-    addLastAction(LastAction{ Change, phone, prevState });
+    addLastAction(LastAction{ Change, prevState, i });
 }
 
 void PhoneBook::removeRecord()
@@ -148,12 +238,23 @@ void PhoneBook::removeRecord()
 
     cout << "Enter phone: ";
     cin >> phone;
-    if (records.find(phone)) {
-        addLastAction(LastAction{ Remove, phone, records[phone] });
+    if (hash_phone.find(phone)) {        
+        unsigned i = hash_phone[phone];
 
-        records.remove(phone);
-        cout << "Record removed.\n";
+        for (auto it : records[i].phone_numbers) {
+            hash_phone.remove(it);
+        }
+        for (auto it = hash_lastName[records[i].lastName].begin(); it != hash_lastName[records[i].lastName].end(); ++it) {
+            if (*it == i) {
+                hash_lastName[records[i].lastName].erase(it);
+                break;
+            }
+        }
         
+        addLastAction(LastAction{ Remove, records[i], i });
+
+        records[i] = BookRecord();
+        cout << "Record removed.\n";        
     }
     else {
         cout << "Record not found.\n";
@@ -163,23 +264,20 @@ void PhoneBook::removeRecord()
 
 void PhoneBook::findRecord()
 {
-    cout << "1. Phone 2. First name 3. Last name 4. Patronymic 5. Email 6. Work 7. Post\nEnter search criteria: ";
-    int field, foundCnt = 1;
+    cout << "\n1. Phone 2. First name 3. Last name 4. Patronymic 5. Email 6. Work 7. Post\n";
+    int field, foundCnt = 0;
     string input;
-    cin >> field;
+    field = _getch() - '0';
 
     switch (field) {
     case Phone:
         cout << "Enter phone: ";
         cin >> input;
-        for (auto it : records) {
-            if (it.first.find(input) != string::npos) {
-                cout << foundCnt++ << ") ";
-                printRecord(it.first, it.second);
-            }
-        }
-
-        if (foundCnt == 1) cout << "Nothing found.\n";
+        
+        if (hash_phone.find(input)) {
+            printRecord(records[hash_phone[input]]);
+            foundCnt = 1;
+        }   
 
         break;
     case FirstName:
@@ -187,27 +285,23 @@ void PhoneBook::findRecord()
         cin >> input;
 
         for (auto it : records) {
-            if (it.second.firstName.find(input) != string::npos) { 
-                cout << foundCnt++ << ") ";
-                printRecord(it.first, it.second);                
+            if (it.firstName == input) { 
+                cout << ++foundCnt << ") ";
+                printRecord(it);                
             }
         }
-
-        if (foundCnt == 1) cout << "Nothing found.\n";
 
         break;
     case LastName:
         cout << "Enter last name: ";
         cin >> input;
 
-        for (auto it : records) {
-            if (it.second.lastName.find(input) != string::npos) {
-                cout << foundCnt++ << ") ";
-                printRecord(it.first, it.second);
+        if (hash_lastName.find(input)) {
+            for (auto it : hash_lastName[input]) {
+                cout << ++foundCnt << ") ";
+                printRecord(records[it]);
             }
         }
-
-        if (foundCnt == 1) cout << "Nothing found.\n";
 
         break;
     case Patronymic:
@@ -215,13 +309,11 @@ void PhoneBook::findRecord()
         cin >> input;
 
         for (auto it : records) {
-            if (it.second.patronymic.find(input) != string::npos) {
-                cout << foundCnt++ << ") ";
-                printRecord(it.first, it.second);
+            if (it.patronymic == input) {
+                cout << ++foundCnt << ") ";
+                printRecord(it);
             }
         }
-
-        if (foundCnt == 1) cout << "Nothing found.\n";
 
         break;
     case Email:
@@ -229,13 +321,11 @@ void PhoneBook::findRecord()
         cin >> input;
 
         for (auto it : records) {
-            if (it.second.email.find(input) != string::npos) {
-                cout << foundCnt++ << ") ";
-                printRecord(it.first, it.second);
+            if (it.email == input) {
+                cout << ++foundCnt << ") ";
+                printRecord(it);
             }
         }
-
-        if (foundCnt == 1) cout << "Nothing found.\n";
 
         break;
     case Work:
@@ -243,13 +333,11 @@ void PhoneBook::findRecord()
         cin >> input;
 
         for (auto it : records) {
-            if (it.second.work.find(input) != string::npos) {
-                cout << foundCnt++ << ") ";
-                printRecord(it.first, it.second);
+            if (it.work == input) {
+                cout << ++foundCnt << ") ";
+                printRecord(it);
             }
         }
-
-        if (foundCnt == 1) cout << "Nothing found.\n";
 
         break;
     case Post:
@@ -257,13 +345,11 @@ void PhoneBook::findRecord()
         cin >> input;
 
         for (auto it : records) {
-            if (it.second.post.find(input) != string::npos) {
-                cout << foundCnt++ << ") ";
-                printRecord(it.first, it.second);
+            if (it.post == input) {
+                cout << ++foundCnt << ") ";
+                printRecord(it);
             }
         }
-
-        if (foundCnt == 1) cout << "Nothing found.\n";
 
         break;
     default:
@@ -271,7 +357,82 @@ void PhoneBook::findRecord()
         return;
     }
 
+    if (foundCnt == 0) {
+        cout << "Nothing found.\nDo you want to try find by part (Y/N)?\n";
+        char c = toupper(_getch());
+        if (c == 'Y') {
+            findByPart();
+        }
+    }
+}
 
+void PhoneBook::findByPart()
+{
+    cout << "\n1. Phone 2. First name 3. Last name 4. Patronymic 5. Email 6. Work 7. Post\n";
+    int field, foundCnt = 0;
+    string input;
+    field = _getch() - '0';
+    cout << "Enter search request: ";
+    cin >> input;
+
+    for (auto it : records) {
+        switch (field)
+        {
+        case Phone:
+            for (auto number : it.phone_numbers) {
+                if (number.find(input) != string::npos) {
+                    printRecord(it);
+                    return;
+                }
+            }
+            break;
+
+        case FirstName:
+            if (it.firstName.find(input) != string::npos) {
+                cout << ++foundCnt;
+                printRecord(it);
+            }
+            break;
+
+        case LastName:
+            if (it.lastName.find(input) != string::npos) {
+                cout << ++foundCnt;
+                printRecord(it);
+            }
+            break;
+
+        case Patronymic:
+            if (it.patronymic.find(input) != string::npos) {
+                cout << ++foundCnt;
+                printRecord(it);
+            }
+            break;
+
+        case Email:
+            if (it.email.find(input) != string::npos) {
+                cout << ++foundCnt;
+                printRecord(it);
+            }
+            break;
+
+        case Work:
+            if (it.work.find(input) != string::npos) {
+                cout << ++foundCnt;
+                printRecord(it);
+            }
+            break;
+
+        case Post:
+            if (it.post.find(input) != string::npos) {
+                cout << ++foundCnt;
+                printRecord(it);
+            }
+            break;
+
+        default:
+            break;
+        }
+    }
 }
 
 void PhoneBook::undo()
@@ -287,13 +448,42 @@ void PhoneBook::undo()
     auto lastAction = lastActions.front();
 
     lastActions.pop_front();
+    int i = lastAction.index;
+
     switch (lastAction.action) {
     case Add:
-        records.remove(lastAction.phone);
+        records.erase(records.begin() + i);
+        for (auto it : lastAction.record.phone_numbers) {
+            hash_phone.remove(it);
+        }
         break;
-    case Change:
+
+    case Change:        
+        for (auto it : records[i].phone_numbers) {
+            hash_phone.remove(it);
+        }
+        for (auto it = hash_lastName[records[i].lastName].begin(); it != hash_lastName[records[i].lastName].end(); ++it) {
+            if (*it == i) {
+                hash_lastName[records[i].lastName].erase(it);
+                break;
+            }
+        }
+
+        records[i] = lastAction.record;
+
+        for (auto it : records[i].phone_numbers) {
+            hash_phone[it] = i;
+        }
+        hash_lastName[records[i].lastName].push_back(i);
+
+        break;
+
     case Remove:
-        records[lastAction.phone] = lastAction.record;
+        records[i] = lastAction.record;
+        for (auto it : records[i].phone_numbers) {
+            hash_phone[it] = i;
+        }
+        hash_lastName[records[i].lastName].push_back(i);
         break;
     default:
         return;
@@ -309,6 +499,14 @@ void PhoneBook::changeMaxUndos()
     unsigned max;
     cin >> max;
     undos = maxUndos = max;
+}
+
+void PhoneBook::showAll()
+{
+    for (auto it : records) {
+        if (it.phone_numbers.size())
+            printRecord(it);
+    }
 }
 
 bool PhoneBook::handleCommand(int cmd)
@@ -329,8 +527,14 @@ bool PhoneBook::handleCommand(int cmd)
     case Undo:
         undo();
         return true;
+    case ShowAll:
+        showAll();
+        return true;
     case MaxUndos:
         changeMaxUndos();
+        return true;
+    case Save:
+        saveBook();
         return true;
     case Exit:
         return true;
@@ -339,15 +543,22 @@ bool PhoneBook::handleCommand(int cmd)
     }
 }
 
-
-
-PhoneBook::~PhoneBook()
-{
+void PhoneBook::saveBook() {
     ofstream fout("bookdata.txt");
 
     for (auto it : records) {
-        fout << it.first << ' ' << it.second.firstName << ' ' << it.second.lastName << ' ' << it.second.patronymic << ' ' << it.second.email << ' ' << it.second.work << ' ' << it.second.post << '\n';
+        if (it.phone_numbers.size() == 0) continue;
+        for (auto number : it.phone_numbers) {
+            fout << number << " ";
+        }
+        fout << '\n';
+        fout << it.firstName << " " << it.lastName << " " << it.patronymic << " " << it.email << " " << it.work << " " << it.post << '\n';
     }
 
     fout.close();
+}
+
+PhoneBook::~PhoneBook()
+{
+    saveBook();
 }

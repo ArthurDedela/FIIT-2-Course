@@ -1,7 +1,9 @@
 #include <iostream>
 #include <string>
+#include <conio.h>
 #include "HashTable.h"
 #include "PhoneBook.h"
+
 
 using namespace std;
 
@@ -12,11 +14,11 @@ int main() {
     int cmd;
     do {
         book.showMenu();
-        cin >> cmd;
+        cmd = _getch() - '0';
         if (!book.handleCommand(cmd)) {
             cout << "Incorrect input!\n";
         }
-    } while (cmd != 7);
+    } while (cmd != Exit);
 
     return 0;
 }
