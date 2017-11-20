@@ -37,9 +37,7 @@ class PhoneBook
         "7. Change max undos",
         "8. Save",
         "9. Exit"
-    };
-
-    
+    };    
 
     enum Fields {
         Phone = 1,
@@ -56,11 +54,11 @@ class PhoneBook
         string firstName, lastName, patronymic, email, work, post;
     };
 
-    unsigned rec_cnt = 0;
-    vector<BookRecord> records;
+    unsigned _rec_cnt = 0;
+    vector<BookRecord> _records;
 
-    HashTable<string, int> hash_phone;
-    HashTable<string, vector<int>> hash_lastName;
+    HashTable<string, int> _hash_phone;
+    HashTable<string, vector<int>> _hash_lastName;
 
 
     struct LastAction {
@@ -69,12 +67,12 @@ class PhoneBook
         unsigned index;
     };
 
-    int modifiedCnt;
+    int _modifiedCnt;
 
-    int maxUndos = 3;
-    int undos = maxUndos;
+    int _maxUndos = 3;
+    int _undos = _maxUndos;
 
-    list<LastAction> lastActions;
+    list<LastAction> _lastActions;
     void addLastAction(LastAction lastAct);
 
     void printRecord(const BookRecord & rec);

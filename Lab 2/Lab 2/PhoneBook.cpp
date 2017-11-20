@@ -9,10 +9,9 @@ PhoneBook::PhoneBook()
     
     string numbers, s;
     
-
     while (!fin.eof()) {
         BookRecord rec;
-        unsigned index = records.size();
+        unsigned index = _records.size();
 
         getline(fin, numbers);
         if (numbers.length() == 0) break;
@@ -33,12 +32,12 @@ PhoneBook::PhoneBook()
             >> rec.work 
             >> rec.post;
 
-        hash_lastName[rec.lastName].push_back(index);
+        _hash_lastName[rec.lastName].push_back(index);
         for (auto it : rec.phone_numbers) {
-            hash_phone[it] = index;
+            _hash_phone[it] = index;
         }
 
-        records.push_back(rec);
+        _records.push_back(rec);
     }
 
     fin.close();
@@ -48,12 +47,12 @@ PhoneBook::PhoneBook()
 
 void PhoneBook::addLastAction(LastAction lastAction)
 {
-    if (lastActions.size() == 10) {
-        lastActions.pop_back();
+    if (_lastActions.size() == MaxUndos) {
+        _lastActions.pop_back();
     }
-    undos = maxUndos;
+    _undos = _maxUndos;
 
-    lastActions.push_front(lastAction);
+    _lastActions.push_front(lastAction);
 }
 
 void PhoneBook::printRecord(const BookRecord & rec)
@@ -86,7 +85,7 @@ void PhoneBook::addRecord()
 {
     BookRecord rec;
     string phone;
-    unsigned index = records.size();
+    unsigned index = _records.size();
 
     cout << "Enter phone numbers or \"STOP\" to finish:\n";
     while (true) {   
@@ -95,7 +94,7 @@ void PhoneBook::addRecord()
 
         if (phone == "STOP") break;
 
-        if (hash_phone.find(phone)) {
+        if (_hash_phone.find(phone)) {
             cout << "This phone number already exist!\n";
             continue;
         }
@@ -123,11 +122,11 @@ void PhoneBook::addRecord()
     
     
     for (auto it : rec.phone_numbers) {
-        hash_phone[it] = index;
+        _hash_phone[it] = index;
     }
-    hash_lastName[rec.lastName].push_back(index);
+    _hash_lastName[rec.lastName].push_back(index);
 
-    records.push_back(rec);
+    _records.push_back(rec);
 
     cout << "Record added!\n";
 
@@ -140,12 +139,12 @@ void PhoneBook::changeRecord()
     cout << "Enter phone: ";
     cin >> phone;
 
-    if (!hash_phone.find(phone)) {
+    if (!_hash_phone.find(phone)) {
         cout << "Contact not found!\n";
         return;
     }
-    unsigned i = hash_phone[phone];
-    printRecord(records[i]);
+    unsigned i = _hash_phone[phone];
+    printRecord(_records[i]);
 
     cout << "What field you want to change?\n1. Phone 2. First name 3. Last name 4. Patronymic 5. Email 6. Work 7. Post\n";
     int field;
@@ -153,17 +152,17 @@ void PhoneBook::changeRecord()
 
     string input;
     
-    BookRecord prevState = records[i];
-    BookRecord & nextState = records[i];
+    BookRecord prevState = _records[i];
+    BookRecord & nextState = _records[i];
 
     switch (field) {
     case Phone:
         for (auto it : nextState.phone_numbers) {
-            hash_phone.remove(it);
+            _hash_phone.remove(it);
         }
         nextState.phone_numbers.clear();
 
-        cout << "Enter phone numbers or \"STOP\" to finish: ";
+        cout << "Enter phone numbers or \"STOP\" to finish: \n";
         while (true) {
             string phone;
             cout << ":: ";
@@ -171,7 +170,7 @@ void PhoneBook::changeRecord()
 
             if (phone == "STOP") break;
 
-            if (hash_phone.find(phone)) {
+            if (_hash_phone.find(phone)) {
                 cout << "This phone number already exist!\n";
                 continue;
             }
@@ -180,7 +179,7 @@ void PhoneBook::changeRecord()
         }
 
         for (auto it : nextState.phone_numbers) {
-            hash_phone[it] = i;
+            _hash_phone[it] = i;
         }
 
         break;
@@ -193,15 +192,15 @@ void PhoneBook::changeRecord()
         cout << "Enter new last name: ";
         cin >> input;
 
-        for (auto it = hash_lastName[nextState.lastName].begin(); it != hash_lastName[nextState.lastName].end(); ++it) {
+        for (auto it = _hash_lastName[nextState.lastName].begin(); it != _hash_lastName[nextState.lastName].end(); ++it) {
             if (*it == i) {
-                hash_lastName[nextState.lastName].erase(it);
+                _hash_lastName[nextState.lastName].erase(it);
                 break;
             }
         }
         nextState.lastName = input;
 
-        hash_lastName[nextState.lastName].push_back(i);
+        _hash_lastName[nextState.lastName].push_back(i);
         break;
     case Patronymic:
         cout << "Enter new patronymic: ";
@@ -238,22 +237,22 @@ void PhoneBook::removeRecord()
 
     cout << "Enter phone: ";
     cin >> phone;
-    if (hash_phone.find(phone)) {        
-        unsigned i = hash_phone[phone];
+    if (_hash_phone.find(phone)) {        
+        unsigned i = _hash_phone[phone];
 
-        for (auto it : records[i].phone_numbers) {
-            hash_phone.remove(it);
+        for (auto it : _records[i].phone_numbers) {
+            _hash_phone.remove(it);
         }
-        for (auto it = hash_lastName[records[i].lastName].begin(); it != hash_lastName[records[i].lastName].end(); ++it) {
+        for (auto it = _hash_lastName[_records[i].lastName].begin(); it != _hash_lastName[_records[i].lastName].end(); ++it) {
             if (*it == i) {
-                hash_lastName[records[i].lastName].erase(it);
+                _hash_lastName[_records[i].lastName].erase(it);
                 break;
             }
         }
         
-        addLastAction(LastAction{ Remove, records[i], i });
+        addLastAction(LastAction{ Remove, _records[i], i });
 
-        records[i] = BookRecord();
+        _records[i] = BookRecord();
         cout << "Record removed.\n";        
     }
     else {
@@ -274,8 +273,8 @@ void PhoneBook::findRecord()
         cout << "Enter phone: ";
         cin >> input;
         
-        if (hash_phone.find(input)) {
-            printRecord(records[hash_phone[input]]);
+        if (_hash_phone.find(input)) {
+            printRecord(_records[_hash_phone[input]]);
             foundCnt = 1;
         }   
 
@@ -284,7 +283,7 @@ void PhoneBook::findRecord()
         cout << "Enter first name: ";
         cin >> input;
 
-        for (auto it : records) {
+        for (auto it : _records) {
             if (it.firstName == input) { 
                 cout << ++foundCnt << ") ";
                 printRecord(it);                
@@ -296,10 +295,10 @@ void PhoneBook::findRecord()
         cout << "Enter last name: ";
         cin >> input;
 
-        if (hash_lastName.find(input)) {
-            for (auto it : hash_lastName[input]) {
+        if (_hash_lastName.find(input)) {
+            for (auto it : _hash_lastName[input]) {
                 cout << ++foundCnt << ") ";
-                printRecord(records[it]);
+                printRecord(_records[it]);
             }
         }
 
@@ -308,7 +307,7 @@ void PhoneBook::findRecord()
         cout << "Enter patrnonymic: ";
         cin >> input;
 
-        for (auto it : records) {
+        for (auto it : _records) {
             if (it.patronymic == input) {
                 cout << ++foundCnt << ") ";
                 printRecord(it);
@@ -320,7 +319,7 @@ void PhoneBook::findRecord()
         cout << "Enter email: ";
         cin >> input;
 
-        for (auto it : records) {
+        for (auto it : _records) {
             if (it.email == input) {
                 cout << ++foundCnt << ") ";
                 printRecord(it);
@@ -332,7 +331,7 @@ void PhoneBook::findRecord()
         cout << "Enter work: ";
         cin >> input;
 
-        for (auto it : records) {
+        for (auto it : _records) {
             if (it.work == input) {
                 cout << ++foundCnt << ") ";
                 printRecord(it);
@@ -344,7 +343,7 @@ void PhoneBook::findRecord()
         cout << "Enter post: ";
         cin >> input;
 
-        for (auto it : records) {
+        for (auto it : _records) {
             if (it.post == input) {
                 cout << ++foundCnt << ") ";
                 printRecord(it);
@@ -375,7 +374,7 @@ void PhoneBook::findByPart()
     cout << "Enter search request: ";
     cin >> input;
 
-    for (auto it : records) {
+    for (auto it : _records) {
         switch (field)
         {
         case Phone:
@@ -437,58 +436,58 @@ void PhoneBook::findByPart()
 
 void PhoneBook::undo()
 {
-    if (!undos) {
+    if (!_undos) {
         cout << "You can't undo more times.\n";
         return;
     }
-    if (lastActions.empty()) {
+    if (_lastActions.empty()) {
         cout << "No actions in history.\n";
         return;
     }
-    auto lastAction = lastActions.front();
+    auto lastAction = _lastActions.front();
 
-    lastActions.pop_front();
+    _lastActions.pop_front();
     int i = lastAction.index;
 
     switch (lastAction.action) {
     case Add:
-        records.erase(records.begin() + i);
+        _records.erase(_records.begin() + i);
         for (auto it : lastAction.record.phone_numbers) {
-            hash_phone.remove(it);
+            _hash_phone.remove(it);
         }
         break;
 
     case Change:        
-        for (auto it : records[i].phone_numbers) {
-            hash_phone.remove(it);
+        for (auto it : _records[i].phone_numbers) {
+            _hash_phone.remove(it);
         }
-        for (auto it = hash_lastName[records[i].lastName].begin(); it != hash_lastName[records[i].lastName].end(); ++it) {
+        for (auto it = _hash_lastName[_records[i].lastName].begin(); it != _hash_lastName[_records[i].lastName].end(); ++it) {
             if (*it == i) {
-                hash_lastName[records[i].lastName].erase(it);
+                _hash_lastName[_records[i].lastName].erase(it);
                 break;
             }
         }
 
-        records[i] = lastAction.record;
+        _records[i] = lastAction.record;
 
-        for (auto it : records[i].phone_numbers) {
-            hash_phone[it] = i;
+        for (auto it : _records[i].phone_numbers) {
+            _hash_phone[it] = i;
         }
-        hash_lastName[records[i].lastName].push_back(i);
+        _hash_lastName[_records[i].lastName].push_back(i);
 
         break;
 
     case Remove:
-        records[i] = lastAction.record;
-        for (auto it : records[i].phone_numbers) {
-            hash_phone[it] = i;
+        _records[i] = lastAction.record;
+        for (auto it : _records[i].phone_numbers) {
+            _hash_phone[it] = i;
         }
-        hash_lastName[records[i].lastName].push_back(i);
+        _hash_lastName[_records[i].lastName].push_back(i);
         break;
     default:
         return;
     }
-    undos--;
+    _undos--;
 
     cout << "Cancelled last action.\n";
 }
@@ -498,12 +497,12 @@ void PhoneBook::changeMaxUndos()
     cout << "Enter max undos: ";
     unsigned max;
     cin >> max;
-    undos = maxUndos = max;
+    _undos = _maxUndos = max;
 }
 
 void PhoneBook::showAll()
 {
-    for (auto it : records) {
+    for (auto it : _records) {
         if (it.phone_numbers.size())
             printRecord(it);
     }
@@ -546,7 +545,7 @@ bool PhoneBook::handleCommand(int cmd)
 void PhoneBook::saveBook() {
     ofstream fout("bookdata.txt");
 
-    for (auto it : records) {
+    for (auto it : _records) {
         if (it.phone_numbers.size() == 0) continue;
         for (auto number : it.phone_numbers) {
             fout << number << " ";
